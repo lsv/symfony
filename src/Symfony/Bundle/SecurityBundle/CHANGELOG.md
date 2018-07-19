@@ -9,7 +9,9 @@ CHANGELOG
    the token classes is deprecated. To use
    custom tokens extend the existing `Symfony\Component\Security\Core\Authentication\Token\AnonymousToken`
    or `Symfony\Component\Security\Core\Authentication\Token\RememberMeToken`.
-
+ * Added `Symfony\Bundle\SecurityBundle\DependencyInjection\Compiler\AddExpressionLanguageProvidersPass`
+ * Added `json_login_ldap` authentication provider to use LDAP authentication with a REST API.
+ 
 4.1.0
 -----
 

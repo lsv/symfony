@@ -15,6 +15,8 @@ use Psr\Container\ContainerInterface as PsrContainerInterface;
 use Symfony\Component\DependencyInjection\Argument\IteratorArgument;
 use Symfony\Component\DependencyInjection\Argument\RewindableGenerator;
 use Symfony\Component\DependencyInjection\Argument\ServiceClosureArgument;
+use Symfony\Component\DependencyInjection\Argument\ServiceLocator;
+use Symfony\Component\DependencyInjection\Argument\ServiceLocatorArgument;
 use Symfony\Component\DependencyInjection\Compiler\Compiler;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
@@ -606,10 +608,10 @@ class ContainerBuilder extends Container implements TaggedContainerInterface
      * the parameters passed to the container constructor to have precedence
      * over the loaded ones.
      *
-     * $container = new ContainerBuilder(array('foo' => 'bar'));
+     * $container = new ContainerBuilder(new ParameterBag(array('foo' => 'bar')));
      * $loader = new LoaderXXX($container);
      * $loader->load('resource_name');
-     * $container->register('foo', new stdClass());
+     * $container->register('foo', 'stdClass');
      *
      * In the above example, even if the loaded resource defines a foo
      * parameter, the value will still be 'bar' as defined in the ContainerBuilder
@@ -1215,6 +1217,14 @@ class ContainerBuilder extends Container implements TaggedContainerInterface
 
                 return $count;
             });
+        } elseif ($value instanceof ServiceLocatorArgument) {
+            $refs = array();
+            foreach ($value->getValues() as $k => $v) {
+                if ($v) {
+                    $refs[$k] = array($v);
+                }
+            }
+            $value = new ServiceLocator(\Closure::fromCallable(array($this, 'resolveServices')), $refs);
         } elseif ($value instanceof Reference) {
             $value = $this->doGet((string) $value, $value->getInvalidBehavior(), $inlineServices);
         } elseif ($value instanceof Definition) {
@@ -1418,7 +1428,7 @@ class ContainerBuilder extends Container implements TaggedContainerInterface
      */
     public function log(CompilerPassInterface $pass, string $message)
     {
-        $this->getCompiler()->log($pass, $message);
+        $this->getCompiler()->log($pass, $this->resolveEnvPlaceholders($message));
     }
 
     /**

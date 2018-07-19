@@ -54,8 +54,8 @@ class Configuration implements ConfigurationInterface
      */
     public function getConfigTreeBuilder()
     {
-        $treeBuilder = new TreeBuilder();
-        $rootNode = $treeBuilder->root('framework');
+        $treeBuilder = new TreeBuilder('framework');
+        $rootNode = $treeBuilder->getRootNode();
 
         $rootNode
             ->beforeNormalization()
@@ -284,8 +284,8 @@ class Configuration implements ConfigurationInterface
                                         ->prototype('scalar')
                                             ->cannotBeEmpty()
                                             ->validate()
-                                                ->ifTrue(function ($v) { return !class_exists($v); })
-                                                ->thenInvalid('The supported class %s does not exist.')
+                                                ->ifTrue(function ($v) { return !class_exists($v) && !interface_exists($v); })
+                                                ->thenInvalid('The supported class or interface "%s" does not exist.')
                                             ->end()
                                         ->end()
                                     ->end()
@@ -452,6 +452,7 @@ class Configuration implements ConfigurationInterface
                             )
                             ->defaultTrue()
                         ->end()
+                        ->booleanNode('utf8')->defaultFalse()->end()
                     ->end()
                 ->end()
             ->end()
@@ -866,6 +867,7 @@ class Configuration implements ConfigurationInterface
                         ->scalarNode('default_psr6_provider')->end()
                         ->scalarNode('default_redis_provider')->defaultValue('redis://localhost')->end()
                         ->scalarNode('default_memcached_provider')->defaultValue('memcached://localhost')->end()
+                        ->scalarNode('default_pdo_provider')->defaultValue('doctrine.dbal.default_connection')->end()
                         ->arrayNode('pools')
                             ->useAttributeAsKey('name')
                             ->prototype('array')

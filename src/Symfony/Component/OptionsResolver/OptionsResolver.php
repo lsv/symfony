@@ -12,6 +12,7 @@
 namespace Symfony\Component\OptionsResolver;
 
 use Symfony\Component\OptionsResolver\Exception\AccessException;
+use Symfony\Component\OptionsResolver\Exception\InvalidArgumentException;
 use Symfony\Component\OptionsResolver\Exception\InvalidOptionsException;
 use Symfony\Component\OptionsResolver\Exception\MissingOptionsException;
 use Symfony\Component\OptionsResolver\Exception\NoSuchOptionException;
@@ -74,6 +75,11 @@ class OptionsResolver implements Options
      * This list helps detecting circular dependencies between lazy options.
      */
     private $calling = array();
+
+    /**
+     * A list of deprecated options.
+     */
+    private $deprecated = array();
 
     /**
      * Whether the instance is locked for reading.
@@ -349,6 +355,57 @@ class OptionsResolver implements Options
     }
 
     /**
+     * Deprecates an option, allowed types or values.
+     *
+     * Instead of passing the message, you may also pass a closure with the
+     * following signature:
+     *
+     *     function ($value) {
+     *         // ...
+     *     }
+     *
+     * The closure receives the value as argument and should return a string.
+     * Returns an empty string to ignore the option deprecation.
+     *
+     * The closure is invoked when {@link resolve()} is called. The parameter
+     * passed to the closure is the value of the option after validating it
+     * and before normalizing it.
+     *
+     * @param string|\Closure $deprecationMessage
+     */
+    public function setDeprecated(string $option, $deprecationMessage = 'The option "%name%" is deprecated.'): self
+    {
+        if ($this->locked) {
+            throw new AccessException('Options cannot be deprecated from a lazy option or normalizer.');
+        }
+
+        if (!isset($this->defined[$option])) {
+            throw new UndefinedOptionsException(sprintf('The option "%s" does not exist, defined options are: "%s".', $option, implode('", "', array_keys($this->defined))));
+        }
+
+        if (!\is_string($deprecationMessage) && !$deprecationMessage instanceof \Closure) {
+            throw new InvalidArgumentException(sprintf('Invalid type for deprecation message argument, expected string or \Closure, but got "%s".', \gettype($deprecationMessage)));
+        }
+
+        // ignore if empty string
+        if ('' === $deprecationMessage) {
+            return $this;
+        }
+
+        $this->deprecated[$option] = $deprecationMessage;
+
+        // Make sure the option is processed
+        unset($this->resolved[$option]);
+
+        return $this;
+    }
+
+    public function isDeprecated(string $option): bool
+    {
+        return isset($this->deprecated[$option]);
+    }
+
+    /**
      * Sets the normalizer for an option.
      *
      * The normalizer should be a closure with the following signature:
@@ -433,7 +490,7 @@ class OptionsResolver implements Options
             ));
         }
 
-        $this->allowedValues[$option] = is_array($allowedValues) ? $allowedValues : array($allowedValues);
+        $this->allowedValues[$option] = \is_array($allowedValues) ? $allowedValues : array($allowedValues);
 
         // Make sure the option is processed
         unset($this->resolved[$option]);
@@ -620,6 +677,7 @@ class OptionsResolver implements Options
         $this->normalizers = array();
         $this->allowedTypes = array();
         $this->allowedValues = array();
+        $this->deprecated = array();
 
         return $this;
     }
@@ -785,14 +843,13 @@ class OptionsResolver implements Options
             }
 
             if (!$valid) {
-                throw new InvalidOptionsException(sprintf(
-                    'The option "%s" with value %s is expected to be of type '.
-                    '"%s", but is of type "%s".',
-                    $option,
-                    $this->formatValue($value),
-                    implode('" or "', $this->allowedTypes[$option]),
-                    implode('|', array_keys($invalidTypes))
-                ));
+                $keys = array_keys($invalidTypes);
+
+                if (1 === \count($keys) && '[]' === substr($keys[0], -2)) {
+                    throw new InvalidOptionsException(sprintf('The option "%s" with value %s is expected to be of type "%s", but one of the elements is of type "%s".', $option, $this->formatValue($value), implode('" or "', $this->allowedTypes[$option]), $keys[0]));
+                }
+
+                throw new InvalidOptionsException(sprintf('The option "%s" with value %s is expected to be of type "%s", but is of type "%s".', $option, $this->formatValue($value), implode('" or "', $this->allowedTypes[$option]), implode('|', array_keys($invalidTypes))));
             }
         }
 
@@ -836,6 +893,19 @@ class OptionsResolver implements Options
             }
         }
 
+        // Check whether the option is deprecated
+        if (isset($this->deprecated[$option])) {
+            $deprecationMessage = $this->deprecated[$option];
+
+            if ($deprecationMessage instanceof \Closure && !\is_string($deprecationMessage = $deprecationMessage($value))) {
+                throw new InvalidOptionsException(sprintf('Invalid type for deprecation message, expected string but got "%s", returns an empty string to ignore.', \gettype($deprecationMessage)));
+            }
+
+            if ('' !== $deprecationMessage) {
+                @trigger_error(strtr($deprecationMessage, array('%name%' => $option)), E_USER_DEPRECATED);
+            }
+        }
+
         // Normalize the validated option
         if (isset($this->normalizers[$option])) {
             // If the closure is already being called, we have a cyclic
@@ -868,32 +938,10 @@ class OptionsResolver implements Options
         return $value;
     }
 
-    /**
-     * @param string $type
-     * @param mixed  $value
-     * @param array  &$invalidTypes
-     *
-     * @return bool
-     */
-    private function verifyTypes($type, $value, array &$invalidTypes)
+    private function verifyTypes(string $type, $value, array &$invalidTypes): bool
     {
-        if ('[]' === substr($type, -2) && is_array($value)) {
-            $originalType = $type;
-            $type = substr($type, 0, -2);
-            $invalidValues = array_filter( // Filter out valid values, keeping invalid values in the resulting array
-                $value,
-                function ($value) use ($type) {
-                    return !self::isValueValidType($type, $value);
-                }
-            );
-
-            if (!$invalidValues) {
-                return true;
-            }
-
-            $invalidTypes[$this->formatTypeOf($value, $originalType)] = true;
-
-            return false;
+        if (\is_array($value) && '[]' === substr($type, -2)) {
+            return $this->verifyArrayType($type, $value, $invalidTypes);
         }
 
         if (self::isValueValidType($type, $value)) {
@@ -905,6 +953,43 @@ class OptionsResolver implements Options
         }
 
         return false;
+    }
+
+    private function verifyArrayType(string $type, array $value, array &$invalidTypes, int $level = 0): bool
+    {
+        $type = substr($type, 0, -2);
+
+        $suffix = '[]';
+        while (\strlen($suffix) <= $level * 2) {
+            $suffix .= '[]';
+        }
+
+        if ('[]' === substr($type, -2)) {
+            $success = true;
+            foreach ($value as $item) {
+                if (!\is_array($item)) {
+                    $invalidTypes[$this->formatTypeOf($item, null).$suffix] = true;
+
+                    return false;
+                }
+
+                if (!$this->verifyArrayType($type, $item, $invalidTypes, $level + 1)) {
+                    $success = false;
+                }
+            }
+
+            return $success;
+        }
+
+        foreach ($value as $item) {
+            if (!self::isValueValidType($type, $item)) {
+                $invalidTypes[$this->formatTypeOf($item, $type).$suffix] = $value;
+
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -987,13 +1072,13 @@ class OptionsResolver implements Options
             while ('[]' === substr($type, -2)) {
                 $type = substr($type, 0, -2);
                 $value = array_shift($value);
-                if (!is_array($value)) {
+                if (!\is_array($value)) {
                     break;
                 }
                 $suffix .= '[]';
             }
 
-            if (is_array($value)) {
+            if (\is_array($value)) {
                 $subTypes = array();
                 foreach ($value as $val) {
                     $subTypes[$this->formatTypeOf($val, null)] = true;
@@ -1003,7 +1088,7 @@ class OptionsResolver implements Options
             }
         }
 
-        return (is_object($value) ? get_class($value) : gettype($value)).$suffix;
+        return (\is_object($value) ? get_class($value) : gettype($value)).$suffix;
     }
 
     /**
@@ -1017,19 +1102,19 @@ class OptionsResolver implements Options
      */
     private function formatValue($value): string
     {
-        if (is_object($value)) {
+        if (\is_object($value)) {
             return get_class($value);
         }
 
-        if (is_array($value)) {
+        if (\is_array($value)) {
             return 'array';
         }
 
-        if (is_string($value)) {
+        if (\is_string($value)) {
             return '"'.$value.'"';
         }
 
-        if (is_resource($value)) {
+        if (\is_resource($value)) {
             return 'resource';
         }
 
@@ -1065,8 +1150,21 @@ class OptionsResolver implements Options
         return implode(', ', $values);
     }
 
-    private static function isValueValidType($type, $value)
+    private static function isValueValidType(string $type, $value): bool
     {
         return (function_exists($isFunction = 'is_'.$type) && $isFunction($value)) || $value instanceof $type;
+    }
+
+    private function getInvalidValues(array $arrayValues, string $type): array
+    {
+        $invalidValues = array();
+
+        foreach ($arrayValues as $key => $value) {
+            if (!self::isValueValidType($type, $value)) {
+                $invalidValues[$key] = $value;
+            }
+        }
+
+        return $invalidValues;
     }
 }

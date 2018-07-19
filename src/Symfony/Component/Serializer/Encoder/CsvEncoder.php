@@ -28,6 +28,7 @@ class CsvEncoder implements EncoderInterface, DecoderInterface
     const KEY_SEPARATOR_KEY = 'csv_key_separator';
     const HEADERS_KEY = 'csv_headers';
     const ESCAPE_FORMULAS_KEY = 'csv_escape_formulas';
+    const AS_COLLECTION_KEY = 'as_collection';
 
     private $delimiter;
     private $enclosure;
@@ -157,12 +158,16 @@ class CsvEncoder implements EncoderInterface, DecoderInterface
         }
         fclose($handle);
 
-        if ($context['as_collection'] ?? false) {
+        if ($context[self::AS_COLLECTION_KEY] ?? false) {
             return $result;
         }
 
         if (empty($result) || isset($result[1])) {
             return $result;
+        }
+
+        if (!isset($context['as_collection'])) {
+            @trigger_error('Relying on the default value (false) of the "as_collection" option is deprecated since 4.2. You should set it to false explicitly instead as true will be the default value in 5.0.', E_USER_DEPRECATED);
         }
 
         // If there is only one data line in the document, return it (the line), the result is not considered as a collection

@@ -11,6 +11,8 @@ CHANGELOG
   custom anonymous and remember me token classes is deprecated. To
   use custom tokens, extend the existing `Symfony\Component\Security\Core\Authentication\Token\AnonymousToken`
   or `Symfony\Component\Security\Core\Authentication\Token\RememberMeToken`.
+* allow passing null as $filter in LdapUserProvider to get the default filter
+* accessing the user object that is not an instance of `UserInterface` from `Security::getUser()` is deprecated
 
 4.1.0
 -----

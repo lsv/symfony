@@ -41,8 +41,8 @@ class MainConfiguration implements ConfigurationInterface
      */
     public function getConfigTreeBuilder()
     {
-        $tb = new TreeBuilder();
-        $rootNode = $tb->root('security');
+        $tb = new TreeBuilder('security');
+        $rootNode = $tb->getRootNode();
 
         $rootNode
             ->beforeNormalization()
@@ -363,8 +363,8 @@ class MainConfiguration implements ConfigurationInterface
             ->children()
                 ->arrayNode('encoders')
                     ->example(array(
-                        'AppBundle\Entity\User1' => 'bcrypt',
-                        'AppBundle\Entity\User2' => array(
+                        'App\Entity\User1' => 'bcrypt',
+                        'App\Entity\User2' => array(
                             'algorithm' => 'bcrypt',
                             'cost' => 13,
                         ),

@@ -66,7 +66,22 @@ class Dummy extends ParentDummy
      *
      * @var array|null
      */
-    public $array;
+    public $g;
+
+    /**
+     * @var ?string
+     */
+    public $h;
+
+    /**
+     * @var ?string|int
+     */
+    public $i;
+
+    /**
+     * @var ?\DateTime
+     */
+    public $j;
 
     /**
      * This should not be removed.
@@ -74,6 +89,21 @@ class Dummy extends ParentDummy
      * @var
      */
     public $emptyVar;
+
+    /**
+     * @var \Iterator<string>
+     */
+    public $iteratorCollection;
+
+    /**
+     * @var \Iterator<integer,string>
+     */
+    public $iteratorCollectionWithKey;
+
+    /**
+     * @var \Iterator<integer,\Iterator<integer,string>>
+     */
+    public $nestedIterators;
 
     public static function getStatic()
     {

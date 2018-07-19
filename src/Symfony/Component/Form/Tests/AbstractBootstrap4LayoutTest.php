@@ -42,7 +42,7 @@ abstract class AbstractBootstrap4LayoutTest extends AbstractBootstrap3LayoutTest
         ./label[@for="name"]
         [
             ./span[@class="alert alert-danger d-block"]
-                [./span[@class="mb-0 d-block"]
+                [./span[@class="d-block"]
                     [./span[.="[trans]Error[/trans]"]]
                     [./span[.="[trans]Error![/trans]"]]
                 ]
@@ -81,7 +81,7 @@ abstract class AbstractBootstrap4LayoutTest extends AbstractBootstrap3LayoutTest
         $this->assertMatchesXpath($html,
 '/label
     [@for="name"]
-    [@class="form-control-label required"]
+    [@class="required"]
 '
         );
     }
@@ -98,7 +98,7 @@ abstract class AbstractBootstrap4LayoutTest extends AbstractBootstrap3LayoutTest
         $this->assertMatchesXpath($html,
 '/label
     [@for="name"]
-    [@class="my&class form-control-label required"]
+    [@class="my&class required"]
 '
         );
     }
@@ -115,7 +115,7 @@ abstract class AbstractBootstrap4LayoutTest extends AbstractBootstrap3LayoutTest
         $this->assertMatchesXpath($html,
 '/label
     [@for="name"]
-    [@class="my&class form-control-label required"]
+    [@class="my&class required"]
     [.="[trans]Custom label[/trans]"]
 '
         );
@@ -135,7 +135,7 @@ abstract class AbstractBootstrap4LayoutTest extends AbstractBootstrap3LayoutTest
         $this->assertMatchesXpath($html,
 '/label
     [@for="name"]
-    [@class="my&class form-control-label required"]
+    [@class="my&class required"]
     [.="[trans]Custom label[/trans]"]
 '
         );
@@ -189,11 +189,11 @@ abstract class AbstractBootstrap4LayoutTest extends AbstractBootstrap3LayoutTest
 '/span
     [@class="alert alert-danger d-block"]
     [
-        ./span[@class="mb-0 d-block"]
+        ./span[@class="d-block"]
             [./span[.="[trans]Error[/trans]"]]
             [./span[.="[trans]Error 1[/trans]"]]
 
-        /following-sibling::span[@class="mb-0 d-block"]
+        /following-sibling::span[@class="d-block"]
             [./span[.="[trans]Error[/trans]"]]
             [./span[.="[trans]Error 2[/trans]"]]
     ]
@@ -940,9 +940,42 @@ abstract class AbstractBootstrap4LayoutTest extends AbstractBootstrap3LayoutTest
     {
         $form = $this->factory->createNamed('name', FileType::class);
 
-        $this->assertWidgetMatchesXpath($form->createView(), array('attr' => array('class' => 'my&class form-control-file')),
-'/input
-    [@type="file"]
+        $this->assertWidgetMatchesXpath($form->createView(), array('id' => 'n/a', 'attr' => array('class' => 'my&class form-control-file')),
+'/div
+    [@class="form-group"]
+    [
+        ./div
+            [@class="custom-file"]
+            [
+                ./input
+                    [@type="file"]
+                    [@name="name"]
+                /following-sibling::label
+                    [@for="name"]
+            ]
+    ]
+'
+        );
+    }
+
+    public function testFileWithPlaceholder()
+    {
+        $form = $this->factory->createNamed('name', FileType::class);
+
+        $this->assertWidgetMatchesXpath($form->createView(), array('id' => 'n/a', 'attr' => array('class' => 'my&class form-control-file', 'placeholder' => 'Custom Placeholder')),
+'/div
+    [@class="form-group"]
+    [
+        ./div
+            [@class="custom-file"]
+            [
+                ./input
+                    [@type="file"]
+                    [@name="name"]
+                /following-sibling::label
+                    [@for="name" and text() = "[trans]Custom Placeholder[/trans]"]
+            ]
+    ]
 '
         );
     }

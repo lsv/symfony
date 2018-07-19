@@ -17,6 +17,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Alias;
 use Symfony\Component\DependencyInjection\Argument\BoundArgument;
 use Symfony\Component\DependencyInjection\Argument\IteratorArgument;
+use Symfony\Component\DependencyInjection\Argument\ServiceLocatorArgument;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -264,10 +265,17 @@ class XmlFileLoader extends FileLoader
             $definition->setChanges(array());
         }
 
-        foreach (array('class', 'public', 'shared', 'synthetic', 'lazy', 'abstract') as $key) {
+        foreach (array('class', 'public', 'shared', 'synthetic', 'abstract') as $key) {
             if ($value = $service->getAttribute($key)) {
                 $method = 'set'.$key;
-                $definition->$method(XmlUtils::phpize($value));
+                $definition->$method($value = XmlUtils::phpize($value));
+            }
+        }
+
+        if ($value = $service->getAttribute('lazy')) {
+            $definition->setLazy((bool) $value = XmlUtils::phpize($value));
+            if (\is_string($value)) {
+                $definition->addTag('proxy', array('interface' => $value));
             }
         }
 
@@ -510,7 +518,15 @@ class XmlFileLoader extends FileLoader
                     try {
                         $arguments[$key] = new IteratorArgument($arg);
                     } catch (InvalidArgumentException $e) {
-                        throw new InvalidArgumentException(sprintf('Tag "<%s>" with type="iterator" only accepts collections of type="service" references in "%s".', $name, $file));
+                        throw new InvalidArgumentException(sprintf('Tag "<%s>" with type="%s" only accepts collections of type="service" references in "%s".', $name, $file));
+                    }
+                    break;
+                case 'service_locator':
+                    $arg = $this->getArgumentsAsPhp($arg, $name, $file, false);
+                    try {
+                        $arguments[$key] = new ServiceLocatorArgument($arg);
+                    } catch (InvalidArgumentException $e) {
+                        throw new InvalidArgumentException(sprintf('Tag "<%s>" with type="%s" only accepts maps of type="service" references in "%s".', $name, $file));
                     }
                     break;
                 case 'tagged':

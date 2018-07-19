@@ -13,6 +13,8 @@ namespace Symfony\Component\Cache\Traits;
 
 use Symfony\Component\Cache\Exception\CacheException;
 use Symfony\Component\Cache\Exception\InvalidArgumentException;
+use Symfony\Component\Cache\Marshaller\DefaultMarshaller;
+use Symfony\Component\Cache\Marshaller\MarshallerInterface;
 
 /**
  * @author Rob Frawley 2nd <rmf@src.run>
@@ -29,6 +31,7 @@ trait MemcachedTrait
         'serializer' => 'php',
     );
 
+    private $marshaller;
     private $client;
     private $lazyClient;
 
@@ -37,7 +40,7 @@ trait MemcachedTrait
         return extension_loaded('memcached') && version_compare(phpversion('memcached'), '2.2.0', '>=');
     }
 
-    private function init(\Memcached $client, $namespace, $defaultLifetime)
+    private function init(\Memcached $client, $namespace, $defaultLifetime, ?MarshallerInterface $marshaller)
     {
         if (!static::isSupported()) {
             throw new CacheException('Memcached >= 2.2.0 is required');
@@ -55,6 +58,7 @@ trait MemcachedTrait
 
         parent::__construct($namespace, $defaultLifetime);
         $this->enableVersioning();
+        $this->marshaller = $marshaller ?? new DefaultMarshaller();
     }
 
     /**
@@ -169,12 +173,12 @@ trait MemcachedTrait
                 }
 
                 if ($oldServers !== $newServers) {
-                    // before resetting, ensure $servers is valid
-                    $client->addServers($servers);
                     $client->resetServerList();
+                    $client->addServers($servers);
                 }
+            } else {
+                $client->addServers($servers);
             }
-            $client->addServers($servers);
 
             if (null !== $username || null !== $password) {
                 if (!method_exists($client, 'setSaslAuthData')) {
@@ -194,11 +198,20 @@ trait MemcachedTrait
      */
     protected function doSave(array $values, $lifetime)
     {
+        if (!$values = $this->marshaller->marshall($values, $failed)) {
+            return $failed;
+        }
+
         if ($lifetime && $lifetime > 30 * 86400) {
             $lifetime += time();
         }
 
-        return $this->checkResultCode($this->getClient()->setMulti($values, $lifetime));
+        $encodedValues = array();
+        foreach ($values as $key => $value) {
+            $encodedValues[rawurlencode($key)] = $value;
+        }
+
+        return $this->checkResultCode($this->getClient()->setMulti($encodedValues, $lifetime)) ? $failed : false;
     }
 
     /**
@@ -206,13 +219,19 @@ trait MemcachedTrait
      */
     protected function doFetch(array $ids)
     {
-        $unserializeCallbackHandler = ini_set('unserialize_callback_func', __CLASS__.'::handleUnserializeCallback');
         try {
-            return $this->checkResultCode($this->getClient()->getMulti($ids));
+            $encodedIds = array_map('rawurlencode', $ids);
+
+            $encodedResult = $this->checkResultCode($this->getClient()->getMulti($encodedIds));
+
+            $result = array();
+            foreach ($encodedResult as $key => $value) {
+                $result[rawurldecode($key)] = $this->marshaller->unmarshall($value);
+            }
+
+            return $result;
         } catch (\Error $e) {
             throw new \ErrorException($e->getMessage(), $e->getCode(), E_ERROR, $e->getFile(), $e->getLine());
-        } finally {
-            ini_set('unserialize_callback_func', $unserializeCallbackHandler);
         }
     }
 
@@ -221,7 +240,7 @@ trait MemcachedTrait
      */
     protected function doHave($id)
     {
-        return false !== $this->getClient()->get($id) || $this->checkResultCode(\Memcached::RES_SUCCESS === $this->client->getResultCode());
+        return false !== $this->getClient()->get(rawurlencode($id)) || $this->checkResultCode(\Memcached::RES_SUCCESS === $this->client->getResultCode());
     }
 
     /**
@@ -230,7 +249,8 @@ trait MemcachedTrait
     protected function doDelete(array $ids)
     {
         $ok = true;
-        foreach ($this->checkResultCode($this->getClient()->deleteMulti($ids)) as $result) {
+        $encodedIds = array_map('rawurlencode', $ids);
+        foreach ($this->checkResultCode($this->getClient()->deleteMulti($encodedIds)) as $result) {
             if (\Memcached::RES_SUCCESS !== $result && \Memcached::RES_NOTFOUND !== $result) {
                 $ok = false;
             }

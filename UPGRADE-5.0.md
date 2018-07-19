@@ -1,9 +1,15 @@
 UPGRADE FROM 4.x to 5.0
 =======================
 
+Cache
+-----
+
+ * Removed `CacheItem::getPreviousTags()`, use `CacheItem::getMetadata()` instead.
+
 Config
 ------
 
+ * Dropped support for constructing a `TreeBuilder` without passing root node information.
  * Added the `getChildNodeDefinitions()` method to `ParentNodeDefinitionInterface`.
  * The `Processor` class has been made final
 
@@ -15,12 +21,32 @@ Console
  * Removed the `getHorizontalBorderChar()` method in favor of the `getBorderChars()` method in `TableStyle`.
  * Removed the `setVerticalBorderChar()` method in favor of the `setVerticalBorderChars()` method in `TableStyle`.
  * Removed the `getVerticalBorderChar()` method in favor of the `getBorderChars()` method in `TableStyle`.
+ * The `ProcessHelper::run()` method takes the command as an array of arguments.
+
+   Before:
+   ```php
+   $processHelper->run($output, 'ls -l');
+   ```
+
+   After:
+   ```php
+   $processHelper->run($output, array('ls', '-l'));
+
+   // alternatively, when a shell wrapper is required
+   $processHelper->run($output, Process::fromShellCommandline('ls -l'));
+   ```
 
 DependencyInjection
 -------------------
 
  * Removed the `TypedReference::canBeAutoregistered()` and  `TypedReference::getRequiringClass()` methods.
  * Removed support for auto-discovered extension configuration class which does not implement `ConfigurationInterface`.
+
+DoctrineBridge
+--------------
+
+ * Deprecated injecting `ClassMetadataFactory` in `DoctrineExtractor`, an instance of `EntityManagerInterface` should be
+   injected instead
 
 EventDispatcher
 ---------------
@@ -72,6 +98,25 @@ HttpFoundation
  * The `getClientSize()` method of the `UploadedFile` class has been removed.
  * The `getSession()` method of the `Request` class throws an exception when session is null.
 
+Process
+-------
+
+ * Removed the `Process::setCommandline()` and the `PhpProcess::setPhpBinary()` methods.
+ * Commands must be defined as arrays when creating a `Process` instance.
+
+   Before:
+   ```php
+   $process = new Process('ls -l');
+   ```
+
+   After:
+   ```php
+   $process = new Process(array('ls', '-l'));
+
+   // alternatively, when a shell wrapper is required
+   $process = Process::fromShellCommandline('ls -l');
+   ```
+
 Security
 --------
 
@@ -81,6 +126,7 @@ Security
  * The `FirewallMapInterface::getListeners()` method must return an array of 3 elements,
    the 3rd one must be either a `LogoutListener` instance or `null`.
  * The `AuthenticationTrustResolver` constructor arguments have been removed.
+ * A user object that is not an instance of `UserInterface` cannot be accessed from `Security::getUser()` anymore and returns `null` instead.
 
 SecurityBundle
 --------------

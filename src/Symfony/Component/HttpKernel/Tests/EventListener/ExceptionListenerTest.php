@@ -159,7 +159,7 @@ class ExceptionListenerTest extends TestCase
     public function testNullController()
     {
         $listener = new ExceptionListener(null);
-        $kernel = $this->getMockBuilder('Symfony\Component\HttpKernel\HttpKernelInterface')->getMock();
+        $kernel = $this->getMockBuilder(HttpKernelInterface::class)->getMock();
         $kernel->expects($this->once())->method('handle')->will($this->returnCallback(function (Request $request) {
             $controller = $request->attributes->get('_controller');
 
@@ -169,7 +169,9 @@ class ExceptionListenerTest extends TestCase
         $event = new GetResponseForExceptionEvent($kernel, $request, HttpKernelInterface::MASTER_REQUEST, new \Exception('foo'));
 
         $listener->onKernelException($event);
+        $this->assertNull($event->getResponse());
 
+        $listener->onKernelException($event);
         $this->assertContains('Whoops, looks like something went wrong.', $event->getResponse()->getContent());
     }
 }

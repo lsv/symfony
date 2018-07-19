@@ -27,7 +27,6 @@ use Symfony\Bundle\FrameworkBundle\DependencyInjection\Compiler\TestServiceConta
 use Symfony\Bundle\FrameworkBundle\DependencyInjection\Compiler\TestServiceContainerRealRefPass;
 use Symfony\Bundle\FrameworkBundle\DependencyInjection\Compiler\UnusedTagsPass;
 use Symfony\Bundle\FrameworkBundle\DependencyInjection\Compiler\WorkflowGuardListenerPass;
-use Symfony\Component\Console\Application;
 use Symfony\Component\Console\DependencyInjection\AddConsoleCommandPass;
 use Symfony\Component\HttpKernel\DependencyInjection\ControllerArgumentValueResolverPass;
 use Symfony\Component\HttpKernel\DependencyInjection\LoggerPass;
@@ -102,7 +101,7 @@ class FrameworkBundle extends Bundle
         $this->addCompilerPassIfExists($container, AddConsoleCommandPass::class, PassConfig::TYPE_BEFORE_REMOVING);
         $this->addCompilerPassIfExists($container, TranslatorPass::class);
         $container->addCompilerPass(new LoggingTranslatorPass());
-        $container->addCompilerPass(new AddExpressionLanguageProvidersPass());
+        $container->addCompilerPass(new AddExpressionLanguageProvidersPass(false));
         $this->addCompilerPassIfExists($container, TranslationExtractorPass::class);
         $this->addCompilerPassIfExists($container, TranslationDumperPass::class);
         $container->addCompilerPass(new FragmentRendererPass());
@@ -136,10 +135,5 @@ class FrameworkBundle extends Bundle
         if (class_exists($class)) {
             $container->addCompilerPass(new $class(), $type, $priority);
         }
-    }
-
-    public function registerCommands(Application $application)
-    {
-        // noop
     }
 }

@@ -18,7 +18,7 @@
     "require": {
         "php": "^7.1.3",
         "ext-xml": "*",
-        "doctrine/common": "~2.4",
+        "doctrine/common": "~2.4@stable",
         "fig/link-util": "^1.0",
         "twig/twig": "^1.35|^2.4.4",
         "psr/cache": "~1.0",
@@ -37,6 +37,7 @@
         "symfony/cache": "self.version",
         "symfony/config": "self.version",
         "symfony/console": "self.version",
+        "symfony/contracts": "1.0.0",
         "symfony/css-selector": "self.version",
         "symfony/dependency-injection": "self.version",
         "symfony/debug": "self.version",
@@ -90,7 +91,7 @@
         "doctrine/cache": "~1.6",
         "doctrine/data-fixtures": "1.0.*",
         "doctrine/dbal": "~2.4",
-        "doctrine/orm": "~2.4,>=2.4.5",
+        "doctrine/orm": "~2.4,>=2.4.5,<=2.7.0",
         "doctrine/doctrine-bundle": "~1.4",
         "monolog/monolog": "~1.11",
         "ocramius/proxy-manager": "~0.4|~1.0|~2.0",
@@ -102,7 +103,7 @@
     },
     "conflict": {
         "phpdocumentor/reflection-docblock": "<3.0||>=3.2.0,<3.2.2",
-        "phpdocumentor/type-resolver": "<0.2.1",
+        "phpdocumentor/type-resolver": "<0.3.0",
         "phpunit/phpunit": "<5.4.3"
     },
     "provide": {
@@ -118,7 +119,8 @@
             "Symfony\\Bridge\\ProxyManager\\": "src/Symfony/Bridge/ProxyManager/",
             "Symfony\\Bridge\\Twig\\": "src/Symfony/Bridge/Twig/",
             "Symfony\\Bundle\\": "src/Symfony/Bundle/",
-            "Symfony\\Component\\": "src/Symfony/Component/"
+            "Symfony\\Component\\": "src/Symfony/Component/",
+            "Symfony\\Contracts\\": "src/Symfony/Contracts/"
         },
         "classmap": [
             "src/Symfony/Component/Intl/Resources/stubs"
